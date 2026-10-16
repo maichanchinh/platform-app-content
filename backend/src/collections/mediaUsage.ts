@@ -20,6 +20,17 @@ type RichTextField = {
 
 type CollectionSchema = Pick<CollectionConfig, 'fields' | 'slug'>
 
+export type MediaUsage = {
+  collection: string
+  id: string
+  title: string
+  field: string
+}
+
+type UsageCollection = CollectionSchema & {
+  admin?: { useAsTitle?: string }
+}
+
 const getNestedFields = (field: FieldSchema): FieldSchema[] => [
   ...(field.fields ?? []),
   ...(field.tabs?.flatMap((tab) => tab.fields ?? []) ?? []),
@@ -234,4 +245,88 @@ export const findMediaUsage = async (
   const isLocked = await findPolymorphicUsage(payload, 'payload-locked-documents', 'document', id)
 
   return isLocked ? { collection: 'payload-locked-documents', field: 'document' } : undefined
+}
+
+const getDocumentTitle = (doc: Record<string, unknown>, collection: UsageCollection) => {
+  const titleField = collection.admin?.useAsTitle
+  const title = titleField ? doc[titleField] : undefined
+  const fallback = doc.title ?? doc.name ?? doc.filename ?? doc.email
+  return String(title ?? fallback ?? doc.id ?? 'Bản ghi')
+}
+
+const findDocuments = async (
+  payload: Payload,
+  collection: string,
+  where?: Record<string, unknown>,
+) => {
+  const docs: Record<string, unknown>[] = []
+  let page = 1
+
+  while (true) {
+    const result = await payload.find({
+      collection: collection as never,
+      depth: 0,
+      limit: 100,
+      overrideAccess: true,
+      page,
+      ...(where ? { where: where as never } : {}),
+    })
+    docs.push(...(result.docs as Record<string, unknown>[]))
+    if (!result.hasNextPage) return docs
+    page += 1
+  }
+}
+
+export const findMediaUsages = async (payload: Payload, id: number | string): Promise<MediaUsage[]> => {
+  const usages: MediaUsage[] = []
+  const seen = new Set<string>()
+
+  const addUsage = (doc: Record<string, unknown>, collection: UsageCollection, field: string) => {
+    const recordID = String(doc.id)
+    const key = `${collection.slug}:${recordID}:${field}`
+    if (seen.has(key)) return
+    seen.add(key)
+    usages.push({
+      collection: collection.slug,
+      id: recordID,
+      title: getDocumentTitle(doc, collection),
+      field,
+    })
+  }
+
+  for (const collection of payload.config.collections as UsageCollection[]) {
+    if (collection.slug === 'media') continue
+
+    const { references, richText } = inspectFields(collection.fields as FieldSchema[])
+    for (const reference of references) {
+      if (reference.polymorphic) {
+        const docs = await findDocuments(payload, collection.slug, {
+          [`${reference.path}.value`]: { equals: id },
+        })
+        for (const doc of docs) {
+          if (getValuesAtPath(doc, reference.path).some((value) => isMediaRelation(value, id))) {
+            addUsage(doc, collection, reference.path)
+          }
+        }
+      } else {
+        const docs = await findDocuments(payload, collection.slug, {
+          [reference.path]: { equals: id },
+        })
+        for (const doc of docs) addUsage(doc, collection, reference.path)
+      }
+    }
+
+    if (richText.length) {
+      const docs = await findDocuments(payload, collection.slug)
+      for (const doc of docs) {
+        for (const field of richText) {
+          if (getValuesAtPath(doc, field.path).some((value) => hasMediaUpload(value, id))) {
+            addUsage(doc, collection, field.path)
+          }
+        }
+      }
+    }
+  }
+
+  return usages
 }

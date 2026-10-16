@@ -1,21 +1,47 @@
 import type { CollectionConfig } from 'payload'
-import { findMediaUsage } from './mediaUsage'
+import { findMediaUsage, findMediaUsages } from './mediaUsage'
 
 export const Media: CollectionConfig = {
   slug: 'media',
   admin: {
     defaultColumns: ['filename', 'alt', 'mimeType', 'filesize', 'updatedAt'],
     components: {
-      listMenuItems: ['/collections/MediaGridLink'],
+      edit: {
+        beforeDocumentControls: ['/collections/MediaUsagePanel'],
+      },
       views: {
+        list: {
+          Component: '/collections/MediaGrid',
+        },
         grid: {
           Component: '/collections/MediaGrid',
           path: '/grid',
           exact: true,
         },
+        table: {
+          Component: '/collections/MediaListView',
+          path: '/list',
+          exact: true,
+        },
       },
     },
   },
+  endpoints: [
+    {
+      path: '/:id/usage',
+      method: 'get',
+      handler: async (req) => {
+        if (!req.user) {
+          return Response.json({ message: 'Bạn cần đăng nhập để xem nơi sử dụng media.' }, { status: 401 })
+        }
+        const id = req.routeParams?.id
+        if (typeof id !== 'string' || !id) {
+          return Response.json({ message: 'Thiếu ID media.' }, { status: 400 })
+        }
+        return Response.json(await findMediaUsages(req.payload, id))
+      },
+    },
+  ],
   access: {
     delete: ({ req }) => Boolean(req.user),
   },

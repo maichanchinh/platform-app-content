@@ -10,6 +10,9 @@ type MediaItem = {
   filename?: string | null
   mimeType?: string | null
   filesize?: number | null
+  width?: number | null
+  height?: number | null
+  updatedAt?: string | null
   url?: string | null
   thumbnailURL?: string | null
   deletedAt?: string | null
@@ -23,6 +26,26 @@ type MediaResponse = {
 type MediaGridProps = {
   initialData?: MediaResponse
   collectionSlug?: string
+}
+
+const formatFileSize = (bytes?: number | null) => {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let size = bytes / 1024
+  let unitIndex = 0
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex += 1
+  }
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(size)} ${units[unitIndex]}`
+}
+
+const formatUpdatedAt = (value?: string | null) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
 export default function MediaGrid({ initialData, collectionSlug = 'media' }: MediaGridProps) {
@@ -130,7 +153,7 @@ export default function MediaGrid({ initialData, collectionSlug = 'media' }: Med
           <h1>Thư viện media</h1>
           <p>{response?.totalDocs ?? docs.length} tệp</p>
         </div>
-        <Link href="/admin/collections/media">Xem dạng danh sách</Link>
+        <Link href="/admin/collections/media/list">Xem dạng danh sách</Link>
         <label className="media-upload-button">
           Tải nhiều tệp
           <input
@@ -193,9 +216,10 @@ export default function MediaGrid({ initialData, collectionSlug = 'media' }: Med
             <div className="media-grid-card-details">
               <strong title={item.filename || ''}>{item.filename || item.alt || 'Media'}</strong>
               <span>{item.mimeType || 'Không rõ loại'}</span>
-              <button onClick={() => void changeTrashState(item)} type="button">
-                {trash ? 'Khôi phục' : 'Đưa vào thùng rác'}
-              </button>
+              <span>Dung lượng: {formatFileSize(item.filesize)}</span>
+              <span>Cập nhật: {formatUpdatedAt(item.updatedAt)}</span>
+              <span>Kích thước: {item.width && item.height ? `${item.width} × ${item.height} px` : '—'}</span>
+              {trash && <button onClick={() => void changeTrashState(item)} type="button">Khôi phục</button>}
             </div>
           </article>
         ))}
