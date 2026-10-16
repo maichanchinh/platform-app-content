@@ -52,6 +52,10 @@ See the [Collections](https://payloadcms.com/docs/configuration/collections) doc
 
   This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
 
+New media uploads are stored in the external RustFS S3-compatible bucket; the backend does not retain local media copies. Set `RUSTFS_ENDPOINT` for the backend's S3 connection and `RUSTFS_PUBLIC_URL` for the public media base URL, along with `RUSTFS_REGION`, `RUSTFS_BUCKET`, `RUSTFS_ACCESS_KEY_ID`, and `RUSTFS_SECRET_ACCESS_KEY` in `backend/.env`. Payload returns URLs under `RUSTFS_PUBLIC_URL/<bucket>/<key>`. Media objects are uploaded with `public-read`; configure RustFS to allow public reads for the bucket. Existing local uploads are not migrated automatically.
+
+Media records cannot be deleted through Payload. Admins can hide or restore a media record using the `hidden` field; hiding is rejected while a registered relationship, upload, Rich Text upload, or Payload locked document references it. Apply database changes with `pnpm payload migrate` before deploying the updated backend.
+
 ### Docker
 
 Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:

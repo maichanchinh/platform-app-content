@@ -32,6 +32,14 @@ test.describe('Admin Panel', () => {
     await expect(listViewArtifact).toBeVisible()
   })
 
+  test('can browse the media grid', async () => {
+    await page.goto('http://localhost:3000/admin/collections/media/grid')
+    await expect(page.locator('h1', { hasText: 'Thư viện media' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Tìm kiếm' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Thùng rác' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Media' })).toBeVisible()
+  })
+
   test('can navigate to edit view', async () => {
     await page.goto('http://localhost:3000/admin/collections/users/create')
     await expect(page).toHaveURL(/\/admin\/collections\/users\/[a-zA-Z0-9-_]+/)
